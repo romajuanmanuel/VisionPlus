@@ -74,6 +74,9 @@ private fun CameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val result by viewModel.result.collectAsStateWithLifecycle()
+    val info by viewModel.info.collectAsStateWithLifecycle()
+
+    info?.let { InfoSheet(state = it, onDismiss = viewModel::dismissInfo) }
 
     Box(modifier = modifier) {
         AndroidView(
@@ -102,7 +105,7 @@ private fun CameraPreview(
             }
         )
 
-        DetectionOverlay(result = result)
+        DetectionOverlay(result = result, onObjectTap = viewModel::onObjectTapped)
 
         Column(
             modifier = Modifier
@@ -113,7 +116,7 @@ private fun CameraPreview(
         ) {
             val objects = result?.objects.orEmpty()
             if (objects.isEmpty()) {
-                Text("Apunta la cámara a un objeto", color = Color.White)
+                Text("Apunta la cámara a un objeto y toca su recuadro", color = Color.White)
             } else {
                 objects.forEach {
                     Text(

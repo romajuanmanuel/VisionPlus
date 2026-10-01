@@ -10,11 +10,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.visionR.visionplus.data.detection.MlKitObjectScanner
 import com.visionR.visionplus.data.detection.ObjectScanner
+import com.visionR.visionplus.data.info.WikipediaInfoRepository
 import com.visionR.visionplus.domain.model.ScanResult
+import com.visionR.visionplus.domain.model.ScannedObject
+import java.io.IOException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +30,12 @@ class ScannerViewModel : ViewModel() {
 
     private val _result = MutableStateFlow<ScanResult?>(null)
     val result: StateFlow<ScanResult?> = _result.asStateFlow()
+
+    private val infoRepository = WikipediaInfoRepository()
+
+    private val _info = MutableStateFlow<InfoState?>(null)
+    val info: StateFlow<InfoState?> = _info.asStateFlow()
+    private var infoJob: Job? = null
 
     val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
@@ -52,6 +62,30 @@ class ScannerViewModel : ViewModel() {
         }
     }
 
+    fun onObjectTapped(obj: ScannedObject) {
+        val name = obj.name ?: run {
+            _info.value = InfoState.NotFound(UNIDENTIFIED)
+            return
+        }
+        _info.value = InfoState.Loading(name)
+        infoJob?.cancel()
+        infoJob = viewModelScope.launch {
+            _info.value = try {
+                infoRepository.getInfo(name)
+                    ?.let { InfoState.Loaded(name, it) }
+                    ?: InfoState.NotFound(name)
+            } catch (e: IOException) {
+                Log.w(TAG, "Info lookup failed for $name", e)
+                InfoState.Error(name)
+            }
+        }
+    }
+
+    fun dismissInfo() {
+        infoJob?.cancel()
+        _info.value = null
+    }
+
     private fun ImageProxy.toUprightBitmap(): Bitmap = use {
         val raw = toBitmap()
         val rotation = imageInfo.rotationDegrees
@@ -70,6 +104,7 @@ class ScannerViewModel : ViewModel() {
 
     private companion object {
         const val TAG = "ScannerViewModel"
+        const val UNIDENTIFIED = "Objeto"
         const val ANALYSIS_INTERVAL_MS = 300L
     }
 }

@@ -36,4 +36,10 @@ Key decisions that span several files:
 - ML Kit Object Detection only returns boxes plus 5 coarse categories. Plan for named objects: Object Detection finds/boxes, Image Labeling names the crop. Do labels first (stage 2a), boxes after (2b).
 - Analysis must run off the main thread with `STRATEGY_KEEP_ONLY_LATEST`; throttle detection on AR frames.
 
-Staged plan: 0-1 dependencies + camera preview (done, awaiting device check), 2 ML Kit analysis, 3 2D overlay with rotation/scale coordinate transform, 4 local info (JSON in assets), 5-7 ARCore, 8 optional MediaPipe, 9 polish/release.
+Implemented so far (stages 0-3 verified on device; 4 built, awaiting device check):
+- `MlKitObjectScanner`: Object Detection boxes, then Image Labeling on each crop. Labels are English strings; `ImageLabel` has no entity id on-device. The base label model has no "termo"/"engrampadora" and falls back to generic "Product" (options if this matters: MediaPipe COCO, custom model, cloud vision).
+- `DetectionOverlay`: yellow boxes drawn and hit-tested with the same FILL_CENTER scale/offset as `PreviewView`; keep both in sync if the preview scale type changes.
+- `WikipediaInfoRepository`: English Wikipedia summary by exact label title -> wikibase_item -> Wikidata `eswiki` sitelink -> Spanish summary (English fallback). Searching Wikidata by text is ambiguous ("Cup" returns the Cuban peso), so don't switch to it. Uses `HttpURLConnection` + `org.json`, no extra libraries; needs the `INTERNET` permission.
+- Don't use `object` in a version-catalog alias (Kotlin keyword breaks `libs.x.object.y`).
+
+Remaining stages: 5-7 ARCore, 8 optional MediaPipe / custom model, 9 polish/release (R8 rules, tests).
